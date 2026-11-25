@@ -1,0 +1,372 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  color: #f4ead0;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+  background: #070b16;
+  touch-action: manipulation;
+}
+
+body {
+  min-height: 100dvh;
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse at 50% 14%, rgb(26 32 56 / 0.85), transparent 58%),
+    linear-gradient(180deg, #070b16 0%, #12182c 46%, #1a2038 100%);
+}
+
+body.is-playing {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  height: 100dvh;
+  height: 100svh;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.play-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 4px;
+  z-index: 3;
+}
+
+.play-bar[hidden] {
+  display: none !important;
+}
+
+.btn-quit {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 10px 14px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #f4ead0;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  opacity: 0.82;
+}
+
+.btn-quit:hover,
+.btn-quit:focus-visible {
+  opacity: 1;
+}
+
+.btn-quit:focus-visible {
+  outline: 2px solid #f4ead0;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: #070b16;
+  touch-action: none;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hud {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  right: 12px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hud[hidden],
+.hint[hidden] {
+  display: none !important;
+}
+
+.hud-time {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff8e6;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgb(7 11 22 / 0.85), 0 0 12px rgb(7 11 22 / 0.7);
+}
+
+.hud-score {
+  margin: 4px 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #f4ead0;
+  text-shadow: 0 1px 2px rgb(7 11 22 / 0.85);
+}
+
+.hud-unit {
+  display: inline-block;
+  margin-left: 0.18em;
+  font-size: 0.62em;
+  font-weight: 700;
+  vertical-align: 0.08em;
+  opacity: 0.86;
+}
+
+.hud-combo {
+  margin: 4px 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #ffd56a;
+  text-shadow: 0 0 10px rgb(255 213 106 / 0.45), 0 1px 2px rgb(7 11 22 / 0.85);
+}
+
+.hud-combo[hidden] {
+  display: none !important;
+}
+
+.hint {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 7%;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f4ead0;
+  opacity: 0.55;
+  text-shadow: 0 1px 2px rgb(7 11 22 / 0.9);
+}
+
+.panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - 28px);
+  max-width: 340px;
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  z-index: 2;
+  padding: 16px 14px 18px;
+  background: linear-gradient(180deg, rgb(22 28 48 / 0.96) 0%, rgb(10 14 26 / 0.97) 100%);
+  border: 1px solid #3d4560;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgb(244 234 208 / 0.1),
+    0 2px 6px rgb(0 0 0 / 0.35),
+    0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+.panel[hidden] {
+  display: none !important;
+}
+
+h1 {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: #fff8e6;
+  text-shadow: 0 1px 0 rgb(7 11 22 / 0.6);
+  background: linear-gradient(180deg, #2a3148 0%, #1a2038 100%);
+  border: 1px solid #5c657e;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgb(244 234 208 / 0.14),
+    0 2px 0 #12182c,
+    0 4px 8px rgb(0 0 0 / 0.28);
+}
+
+.lead,
+.rule,
+.meta,
+.banner {
+  margin: 0 0 8px;
+}
+
+.lead {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff8e6;
+}
+
+.rule,
+.meta {
+  font-size: 0.9rem;
+  color: #f4ead0;
+}
+
+.banner {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffd56a;
+}
+
+.banner[hidden] {
+  display: none !important;
+}
+
+.actions {
+  display: grid;
+  gap: 0;
+}
+
+.action {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border: 1px solid #5c657e;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #3d4560 0%, #2a3148 100%);
+  color: #fff8e6;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgb(244 234 208 / 0.16),
+    inset 0 -2px 0 rgb(0 0 0 / 0.25),
+    0 3px 0 #12182c,
+    0 4px 6px rgb(0 0 0 / 0.3);
+}
+
+.action:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 3px rgb(0 0 0 / 0.35),
+    0 1px 0 #12182c;
+}
+
+.action:focus-visible {
+  outline: 2px solid #f4ead0;
+  outline-offset: 2px;
+}
+
+.action[hidden] {
+  display: none !important;
+}
+
+.share-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0 0;
+}
+
+.share-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.share-btn svg {
+  display: block;
+  width: 44px;
+  height: 44px;
+  pointer-events: none;
+}
+
+.share-btn:active {
+  transform: scale(0.96);
+}
+
+.share-btn:focus-visible {
+  outline: 2px solid #f4ead0;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .action:active {
+    transform: none;
+  }
+
+  .share-btn:active {
+    transform: none;
+  }
+}
+
+@media (max-width: 359px) {
+  html,
+  body {
+    font-size: 15px;
+  }
+
+  .hud-time {
+    font-size: 1.45rem;
+  }
+
+  h1 {
+    font-size: 1.02rem;
+    letter-spacing: 0.08em;
+  }
+}
