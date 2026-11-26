@@ -8,6 +8,7 @@ import {
   PALETTE,
   EFFECT_LIFE,
 } from "../engine/constants.mjs";
+import { shakeOffset, badgeScale, drawFx, drawFlash } from "./fx.mjs";
 
 export { VIEW_W, VIEW_H };
 
@@ -346,8 +347,12 @@ function drawColorMark(ctx, x, y, r, color, alpha) {
   ctx.restore();
 }
 
-function drawWisp(ctx, view, wisp, chained, reducedMotion, t) {
-  const alpha = wispAlpha(wisp);
+function drawWisp(ctx, view, wisp, flags, reducedMotion, t) {
+  const chained = !!flags?.chained;
+  const emphasize = !!flags?.emphasize;
+  const dim = !!flags?.dim;
+  let alpha = wispAlpha(wisp);
+  if (dim) alpha *= 0.36;
   if (alpha <= 0.01) return;
   const x = view.sx(wisp.x);
   const y = view.sy(wisp.y);
@@ -355,9 +360,11 @@ function drawWisp(ctx, view, wisp, chained, reducedMotion, t) {
   const color = wispHex(wisp.color);
   let pulse = 1;
   if (!reducedMotion) {
-    pulse = 1 + 0.05 * Math.sin((Number(t) || 0) * 3 + (Number(wisp.id) || 0) * 1.7);
+    const amt = emphasize ? 0.12 : 0.05;
+    const spd = emphasize ? 5 : 3;
+    pulse = 1 + amt * Math.sin((Number(t) || 0) * spd + (Number(wisp.id) || 0) * 1.7);
   }
-  const glowR = r * 2.35 * pulse;
+  const glowR = r * (emphasize ? 2.85 : 2.35) * pulse;
 
   const g = ctx.createRadialGradient(x, y, 0, x, y, glowR);
   g.addColorStop(0, rgba(FLARE, 0.95 * alpha));
@@ -389,6 +396,14 @@ function drawWisp(ctx, view, wisp, chained, reducedMotion, t) {
   ctx.fill();
 
   drawColorMark(ctx, x, y, r, wisp.color, alpha * 0.95);
+
+  if (emphasize && !chained) {
+    ctx.strokeStyle = rgba(color, 0.55 * alpha);
+    ctx.lineWidth = Math.max(2, view.px(2.2));
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.28 * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   if (chained) {
     ctx.strokeStyle = rgba(FLARE, 0.85 * alpha);
@@ -429,26 +444,76 @@ function drawChain(ctx, view, state) {
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  ctx.strokeStyle = rgba(color, 0.28);
-  ctx.lineWidth = Math.max(6, view.px(7));
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.stroke();
+  const stroke = (style, width) => {
+    ctx.strokeStyle = style;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    ctx.stroke();
+  };
 
+  // Thicker, brighter line so it stays readable under a finger.
+  stroke(rgba(color, 0.22), Math.max(16, view.px(18)));
+  stroke(rgba(color, 0.5), Math.max(11, view.px(12)));
+  stroke(rgba(color, 0.95), Math.max(5, view.px(5.5)));
+  stroke(rgba(FLARE, 0.9), Math.max(2.2, view.px(2.4)));
+}
+
+/** ~70 world-units above the finger: current color + chain length. */
+const BADGE_OFFSET = 70;
+
+function drawFingerBadge(ctx, view, state, pulse = 1) {
+  const chain = state?.chain;
+  const pointer = state?.pointer;
+  if (!pointer?.held || !chain || chain.color == null || !chain.ids?.length) return;
+
+  const n = chain.ids.length;
+  const color = wispHex(chain.color);
+  let x = view.sx(pointer.x);
+  let y = view.sy(pointer.y - BADGE_OFFSET);
+  const w = view.px(86);
+  const h = view.px(36);
+  const r = h / 2;
+  if (y - h / 2 < 8) y = view.sy(pointer.y) + view.px(BADGE_OFFSET);
+  const minX = 8 + w / 2;
+  const maxX = view.cssW - 8 - w / 2;
+  if (x < minX) x = minX;
+  if (x > maxX) x = maxX;
+
+  ctx.save();
+  ctx.translate(x, y);
+  const s = Number.isFinite(pulse) && pulse > 0 ? pulse : 1;
+  if (s !== 1) ctx.scale(s, s);
+  ctx.shadowColor = rgba(SKY, 0.55);
+  ctx.shadowBlur = view.px(8);
+  ctx.fillStyle = "rgba(7, 11, 22, 0.88)";
+  ctx.beginPath();
+  ctx.roundRect(-w / 2, -h / 2, w, h, r);
+  ctx.fill();
+  ctx.shadowBlur = 0;
   ctx.strokeStyle = rgba(color, 0.9);
-  ctx.lineWidth = Math.max(2, view.px(2.4));
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.lineWidth = Math.max(1.5, view.px(1.6));
   ctx.stroke();
 
-  ctx.strokeStyle = rgba(FLARE, 0.55);
-  ctx.lineWidth = Math.max(1, view.px(1.1));
+  const dotR = view.px(9);
+  const dotX = -w / 2 + view.px(16);
+  const g = ctx.createRadialGradient(dotX, 0, 0, dotX, 0, dotR * 1.6);
+  g.addColorStop(0, rgba(FLARE, 1));
+  g.addColorStop(0.45, rgba(color, 0.95));
+  g.addColorStop(1, rgba(color, 0.2));
+  ctx.fillStyle = g;
   ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.stroke();
+  ctx.arc(dotX, 0, dotR * 1.15, 0, Math.PI * 2);
+  ctx.fill();
+  drawColorMark(ctx, dotX, 0, dotR * 1.35, chain.color, 1);
+
+  ctx.fillStyle = CREAM;
+  ctx.font = `700 ${Math.max(16, view.px(18))}px "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(n), dotX + view.px(16), view.px(0.5));
+  ctx.restore();
 }
 
 /**
@@ -559,29 +624,44 @@ function drawVignette(ctx, view) {
 export function drawScene(ctx, state, opts = {}) {
   const canvas = ctx.canvas;
   const { cssW, cssH, dpr } = syncCanvasSize(canvas);
+  const fx = opts.fx;
+  const shake = opts.reducedMotion ? { x: 0, y: 0 } : shakeOffset(fx);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.save();
+  ctx.translate(shake.x, shake.y);
+  ctx.clearRect(-8, -8, cssW + 16, cssH + 16);
+  ctx.fillStyle = SKY;
+  ctx.fillRect(-8, -8, cssW + 16, cssH + 16);
   fillNight(ctx, cssW, cssH);
 
   const view = makeView(cssW, cssH);
   const reducedMotion = !!opts.reducedMotion;
   const t = Number(state?.t) || 0;
 
-  ctx.save();
   drawBackground(ctx, view, state, reducedMotion);
 
   const wisps = state?.wisps || [];
   const chained = new Set(state?.chain?.ids || []);
+  const chainColor = state?.chain?.color;
+  const dragging = !!(state?.pointer?.held && chainColor != null && (state?.chain?.ids || []).length);
 
-  // 奥の弱いものから
+  // 奥の弱いものから。ドラッグ中は同じ色を強調し、ほかの色を落とす。
   for (const wisp of wisps) {
-    if (!chained.has(wisp.id)) drawWisp(ctx, view, wisp, false, reducedMotion, t);
+    if (chained.has(wisp.id)) continue;
+    const emphasize = dragging && wisp.color === chainColor;
+    const dim = dragging && wisp.color !== chainColor;
+    drawWisp(ctx, view, wisp, { chained: false, emphasize, dim }, reducedMotion, t);
   }
   drawChain(ctx, view, state || {});
   for (const wisp of wisps) {
-    if (chained.has(wisp.id)) drawWisp(ctx, view, wisp, true, reducedMotion, t);
+    if (chained.has(wisp.id)) {
+      drawWisp(ctx, view, wisp, { chained: true, emphasize: true, dim: false }, reducedMotion, t);
+    }
   }
   drawEffects(ctx, view, state?.effects, reducedMotion);
+  drawFx(ctx, view, fx, reducedMotion);
   drawVignette(ctx, view);
+  drawFingerBadge(ctx, view, state || {}, badgeScale(fx));
   ctx.restore();
+  drawFlash(ctx, cssW, cssH, fx);
 }
