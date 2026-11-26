@@ -34,6 +34,12 @@ body.is-playing {
   overscroll-behavior: none;
 }
 
+html.is-playing,
+html.is-playing body {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 .app {
   display: flex;
   flex-direction: column;
