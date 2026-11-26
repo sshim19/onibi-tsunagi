@@ -5,7 +5,7 @@ import {
   MAX_DT,
   RUN_TIME,
   POP_MAX,
-  GRAB_RADIUS,
+  GRAB_RADIUS_SAME,
   BURST_RADIUS,
   BURST_BONUS,
   COMBO_WINDOW,
@@ -101,7 +101,7 @@ function lastInChain(state) {
 }
 
 function processHits(state, ax, ay, bx, by) {
-  let hits = hitsAlongSegment(state.wisps, ax, ay, bx, by, GRAB_RADIUS);
+  let hits = hitsAlongSegment(state.wisps, ax, ay, bx, by, GRAB_RADIUS_SAME);
   const chained = state.chain.ids.length > 0 && state.chain.color != null;
   if (chained) {
     const prevId = state.chain.ids[state.chain.ids.length - 2];
@@ -224,15 +224,23 @@ function endRun(state) {
 export function tick(state, input, dt) {
   if (state.status !== "playing") return cloneState(state);
   const s = cloneState(state);
+  // Hit against the last rendered positions first, then move, so a finger
+  // aims at what it just saw. Chained / dragging speeds are applied in physics.
+  applyPointer(s, input);
   let left = Math.min(Math.max(Number(dt) || 0, 0), MAX_DT);
   while (left > 0 && s.status === "playing") {
     const stepDt = Math.min(FIXED_DT, left);
     stepPhysics(s, stepDt);
     left -= stepDt;
+    if (timeIsUp(s.t)) {
+      endRun(s);
+      break;
+    }
   }
-  applyPointer(s, input);
-  if (timeIsUp(s.t)) endRun(s);
-  else fillPopulation(s);
+  if (s.status === "playing") {
+    if (timeIsUp(s.t)) endRun(s);
+    else fillPopulation(s);
+  }
   updateBests(s);
   return s;
 }

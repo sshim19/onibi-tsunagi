@@ -16,7 +16,9 @@ export const FIELD_H = FIELD_BOTTOM - FIELD_TOP;
 export const WISP_R = 19;
 export const GRAB_SLOP = 8;
 export const GRAB_RADIUS = WISP_R + GRAB_SLOP;
-export const LINK_DIST = 128;
+/** Generous same-color grab (~2x visual radius) so a finger can catch nearby wisps. */
+export const GRAB_RADIUS_SAME = WISP_R * 2 + 2;
+export const LINK_DIST = 200;
 export const MIN_SPAWN_SEP = 40;
 
 export const POP_MAX = 22;
@@ -42,7 +44,7 @@ export const STORAGE_DAILY_PREFIX = "onibi-tsunagi:daily:";
 export const SEED_PREFIX = "onibi-tsunagi:";
 
 export const RED_COLOR = 4;
-export const COLOR_COUNT_EARLY = 4;
+export const COLOR_COUNT_EARLY = 3;
 export const COLOR_COUNT_LATE = 5;
 export const RED_UNLOCK_T = 28;
 
@@ -60,10 +62,10 @@ export const COLORS = [
  * cluster is the chance to try placing near a same-color wisp.
  */
 export const BANDS = [
-  { upTo: 12, pop: 12, colors: 4, speedMin: 24, speedMax: 40, cluster: 0.8 },
-  { upTo: 28, pop: 14, colors: 4, speedMin: 38, speedMax: 58, cluster: 0.4 },
-  { upTo: 44, pop: 16, colors: 5, speedMin: 52, speedMax: 76, cluster: 0.15 },
-  { upTo: Infinity, pop: 18, colors: 5, speedMin: 64, speedMax: 92, cluster: 0.1 },
+  { upTo: 20, pop: 13, colors: 3, speedMin: 24, speedMax: 40, cluster: 0.9 },
+  { upTo: 28, pop: 15, colors: 4, speedMin: 38, speedMax: 58, cluster: 0.55 },
+  { upTo: 44, pop: 17, colors: 5, speedMin: 52, speedMax: 76, cluster: 0.22 },
+  { upTo: Infinity, pop: 18, colors: 5, speedMin: 64, speedMax: 92, cluster: 0.15 },
 ];
 
 export const POS_CANDIDATES = 8;
@@ -71,7 +73,7 @@ export const WANDER_AMP_MIN = 8;
 export const WANDER_AMP_MAX = 18;
 export const WANDER_FREQ_MIN = 0.7 * Math.PI * 2;
 export const WANDER_FREQ_MAX = 1.5 * Math.PI * 2;
-export const CLUSTER_DIST_MAX = 90;
+export const CLUSTER_DIST_MAX = 110;
 
 export function bandAtT(t) {
   const x = Number(t) || 0;
