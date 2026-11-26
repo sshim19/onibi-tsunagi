@@ -13,11 +13,11 @@ export const FIELD_BOTTOM = VIEW_H - FIELD_PAD_BOTTOM;
 export const FIELD_W = FIELD_RIGHT - FIELD_LEFT;
 export const FIELD_H = FIELD_BOTTOM - FIELD_TOP;
 
-export const WISP_R = 17;
+export const WISP_R = 19;
 export const GRAB_SLOP = 8;
 export const GRAB_RADIUS = WISP_R + GRAB_SLOP;
 export const LINK_DIST = 128;
-export const MIN_SPAWN_SEP = 36;
+export const MIN_SPAWN_SEP = 40;
 
 export const POP_MAX = 22;
 export const RUN_TIME = 60;

@@ -1,4 +1,4 @@
-/** Segment hit tests, chain add / break, release, and burst targeting. */
+/** Segment hit tests, chain add / undo, release, and burst targeting. */
 
 import { GRAB_RADIUS, LINK_DIST, CLEAR_MIN, BURST_MIN, BURST_RADIUS } from "./constants.mjs";
 
@@ -36,8 +36,9 @@ export function canLink(a, b, maxDist = LINK_DIST) {
 
 /**
  * Try to extend chain with wisp.
+ * Other colors are ignored (skip), so a brush no longer breaks the chain.
  * lastWisp is the current tail (needed for the link-distance check).
- * @returns {{ chain: object, event: "start" | "add" | "break" | "skip" }}
+ * @returns {{ chain: object, event: "start" | "add" | "skip" }}
  */
 export function tryAddWisp(chain, wisp, lastWisp) {
   if (!wisp || wisp.phase === "exit") return { chain, event: "skip" };
@@ -46,7 +47,7 @@ export function tryAddWisp(chain, wisp, lastWisp) {
     return { chain: { color: wisp.color, ids: [wisp.id], broke: false }, event: "start" };
   }
   if (wisp.color !== chain.color) {
-    return { chain: { color: null, ids: [], broke: true }, event: "break" };
+    return { chain, event: "skip" };
   }
   if (lastWisp && !canLink(lastWisp, wisp, LINK_DIST)) {
     return { chain, event: "skip" };
@@ -54,6 +55,25 @@ export function tryAddWisp(chain, wisp, lastWisp) {
   return {
     chain: { color: chain.color, ids: chain.ids.concat(wisp.id), broke: false },
     event: "add",
+  };
+}
+
+/**
+ * Moving back onto the previous wisp undoes the last link,
+ * but only once the pointer is clearly closer to that wisp than to the tail
+ * (hysteresis), so adding a link does not immediately undo it.
+ * @returns {{ chain: object, event: "undo" | "skip" }}
+ */
+export function tryUndoLast(chain, wisp, pointer, tailWisp, slop = 6) {
+  if (!wisp || !chain || chain.ids.length < 2) return { chain, event: "skip" };
+  if (wisp.id !== chain.ids[chain.ids.length - 2]) return { chain, event: "skip" };
+  if (!pointer || !tailWisp) return { chain, event: "skip" };
+  const dPrev = Math.hypot(pointer.x - wisp.x, pointer.y - wisp.y);
+  const dTail = Math.hypot(pointer.x - tailWisp.x, pointer.y - tailWisp.y);
+  if (dPrev + slop >= dTail) return { chain, event: "skip" };
+  return {
+    chain: { color: chain.color, ids: chain.ids.slice(0, -1), broke: false },
+    event: "undo",
   };
 }
 

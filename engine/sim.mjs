@@ -20,7 +20,7 @@ import {
 } from "./constants.mjs";
 import { hashSeed } from "./rng.mjs";
 import { nextWisp } from "./spawn.mjs";
-import { hitsAlongSegment, tryAddWisp, resolveRelease } from "./chain.mjs";
+import { hitsAlongSegment, tryAddWisp, tryUndoLast, resolveRelease } from "./chain.mjs";
 
 function cloneState(s) {
   return {
@@ -101,25 +101,28 @@ function lastInChain(state) {
 }
 
 function processHits(state, ax, ay, bx, by) {
-  const hits = hitsAlongSegment(state.wisps, ax, ay, bx, by, GRAB_RADIUS);
+  let hits = hitsAlongSegment(state.wisps, ax, ay, bx, by, GRAB_RADIUS);
+  const chained = state.chain.ids.length > 0 && state.chain.color != null;
+  if (chained) {
+    const prevId = state.chain.ids[state.chain.ids.length - 2];
+    // Other colors are ignored; the previous wisp is kept so we can backtrack.
+    hits = hits.filter((h) => h.wisp.color === state.chain.color || h.wisp.id === prevId);
+  } else if (hits.length > 1) {
+    // Start on the nearest wisp so an overlap does not grab the wrong color.
+    hits = hits.slice().sort((a, b) => a.dist - b.dist || a.t - b.t || a.wisp.id - b.wisp.id);
+    hits = [hits[0]];
+  }
+
+  const pointer = { x: bx, y: by };
   for (const { wisp } of hits) {
-    const { chain, event } = tryAddWisp(state.chain, wisp, lastInChain(state));
-    if (event === "break") {
-      state.combo = 1;
-      state.comboT = 0;
-      state.effects.push({
-        type: "break",
-        x: wisp.x,
-        y: wisp.y,
-        color: state.chain.color ?? wisp.color,
-        r: wisp.r,
-        life: 1,
-      });
-      // Chain ends; the wisp that broke it starts a fresh chain on this stroke.
-      const started = tryAddWisp({ color: null, ids: [], broke: true }, wisp, null);
-      state.chain = { ...started.chain, broke: true };
+    const tail = lastInChain(state);
+    const undone = tryUndoLast(state.chain, wisp, pointer, tail);
+    if (undone.event === "undo") {
+      state.chain = undone.chain;
       continue;
     }
+    const { chain, event } = tryAddWisp(state.chain, wisp, tail);
+    if (event === "skip") continue;
     state.chain = chain;
   }
 }
