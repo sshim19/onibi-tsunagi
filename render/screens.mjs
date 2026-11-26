@@ -8,6 +8,7 @@ import { formatScore, formatTime } from "./share.mjs";
 export function bindScreens(root = document) {
   const el = {
     body: document.body,
+    html: document.documentElement,
     playBar: root.querySelector("#play-bar"),
     hud: root.querySelector("#play-hud"),
     hudTime: root.querySelector("#hud-time"),
@@ -33,6 +34,12 @@ export function bindScreens(root = document) {
     canvas: root.querySelector("#game"),
   };
 
+
+  function setPlaying(on) {
+    el.body?.classList.toggle("is-playing", !!on);
+    el.html?.classList.toggle("is-playing", !!on);
+  }
+
   function hide(node, on) {
     if (!node) return;
     node.hidden = !!on;
@@ -51,7 +58,7 @@ export function bindScreens(root = document) {
    * @param {{ dateLabel: string, bestScore: number | null }} data
    */
   function showTitle(data) {
-    el.body?.classList.remove("is-playing");
+    setPlaying(false);
     hide(el.title, false);
     hide(el.over, true);
     hide(el.playBar, true);
@@ -67,7 +74,7 @@ export function bindScreens(root = document) {
   }
 
   function showPlay() {
-    el.body?.classList.add("is-playing");
+    setPlaying(true);
     hide(el.title, true);
     hide(el.over, true);
     hide(el.playBar, false);
@@ -84,7 +91,7 @@ export function bindScreens(root = document) {
    * }} data
    */
   function showOver(data) {
-    el.body?.classList.remove("is-playing");
+    setPlaying(false);
     hide(el.title, true);
     hide(el.over, false);
     hide(el.playBar, true);
