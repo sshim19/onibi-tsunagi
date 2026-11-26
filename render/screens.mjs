@@ -20,6 +20,7 @@ export function bindScreens(root = document) {
     titleDate: root.querySelector("#title-date"),
     titleRecord: root.querySelector("#title-record"),
     btnStart: root.querySelector("#btn-start"),
+    btnMute: root.querySelector("#btn-mute"),
     over: root.querySelector("#screen-over"),
     overHeading: root.querySelector("#screen-over h1"),
     overScore: root.querySelector("#over-score"),
@@ -61,7 +62,8 @@ export function bindScreens(root = document) {
     setPlaying(false);
     hide(el.title, false);
     hide(el.over, true);
-    hide(el.playBar, true);
+    hide(el.playBar, false);
+    hide(el.btnQuit, true);
     hide(el.hud, true);
     hide(el.hint, true);
     if (el.titleDate) el.titleDate.textContent = `今日の鬼火（${data.dateLabel}）`;
@@ -78,6 +80,7 @@ export function bindScreens(root = document) {
     hide(el.title, true);
     hide(el.over, true);
     hide(el.playBar, false);
+    hide(el.btnQuit, false);
     hide(el.hud, false);
   }
 
@@ -144,6 +147,16 @@ export function bindScreens(root = document) {
     hide(el.hint, !visible);
   }
 
+  /** @param {boolean} muted */
+  function setMuteUi(muted) {
+    const btn = el.btnMute;
+    if (!btn) return;
+    const on = !!muted;
+    btn.classList.toggle("is-muted", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", on ? "音を出す" : "音を消す");
+  }
+
   return {
     el,
     showTitle,
@@ -151,5 +164,6 @@ export function bindScreens(root = document) {
     showOver,
     updateHud,
     setHintVisible,
+    setMuteUi,
   };
 }
