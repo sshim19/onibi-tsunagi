@@ -21,7 +21,7 @@ export const GRAB_RADIUS_SAME = WISP_R * 2 + 2;
 export const LINK_DIST = 200;
 export const MIN_SPAWN_SEP = 40;
 
-export const POP_MAX = 22;
+export const POP_MAX = 24;
 export const RUN_TIME = 60;
 export const FIXED_DT = 1 / 60;
 export const MAX_DT = 0.05;
@@ -62,10 +62,10 @@ export const COLORS = [
  * cluster is the chance to try placing near a same-color wisp.
  */
 export const BANDS = [
-  { upTo: 20, pop: 13, colors: 3, speedMin: 24, speedMax: 40, cluster: 0.9 },
-  { upTo: 28, pop: 15, colors: 4, speedMin: 38, speedMax: 58, cluster: 0.55 },
-  { upTo: 44, pop: 17, colors: 5, speedMin: 52, speedMax: 76, cluster: 0.22 },
-  { upTo: Infinity, pop: 18, colors: 5, speedMin: 64, speedMax: 92, cluster: 0.15 },
+  { upTo: 20, pop: 18, colors: 3, speedMin: 24, speedMax: 40, cluster: 0.92 },
+  { upTo: 28, pop: 20, colors: 4, speedMin: 38, speedMax: 58, cluster: 0.8 },
+  { upTo: 44, pop: 22, colors: 5, speedMin: 52, speedMax: 76, cluster: 0.75 },
+  { upTo: Infinity, pop: 24, colors: 5, speedMin: 64, speedMax: 92, cluster: 0.72 },
 ];
 
 export const POS_CANDIDATES = 8;
@@ -73,7 +73,13 @@ export const WANDER_AMP_MIN = 8;
 export const WANDER_AMP_MAX = 18;
 export const WANDER_FREQ_MIN = 0.7 * Math.PI * 2;
 export const WANDER_FREQ_MAX = 1.5 * Math.PI * 2;
-export const CLUSTER_DIST_MAX = 110;
+export const CLUSTER_DIST_MAX = 100;
+export const TTL_MIN = 7;
+export const TTL_MAX = 12;
+export const NATURAL_EXIT_TIME = 0.4;
+export const COLOR_FLOOR = 3;
+export const STACK_TARGET = 8;
+export const NATURAL_RETIRE_CAP = 2;
 
 export function bandAtT(t) {
   const x = Number(t) || 0;

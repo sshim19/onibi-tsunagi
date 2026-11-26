@@ -12,6 +12,8 @@ import {
   COMBO_MAX,
   ENTER_TIME,
   EXIT_TIME,
+  NATURAL_EXIT_TIME,
+  NATURAL_RETIRE_CAP,
   EFFECT_LIFE,
   CLEAR_MIN,
   bandAtT,
@@ -29,6 +31,7 @@ function cloneState(s) {
     chain: { color: s.chain.color, ids: s.chain.ids.slice(), broke: s.chain.broke },
     wisps: s.wisps.map((w) => ({ ...w, wander: { ...w.wander } })),
     effects: s.effects.map((e) => ({ ...e })),
+    spawnAttract: s.spawnAttract ? { ...s.spawnAttract } : null,
   };
 }
 
@@ -66,6 +69,26 @@ function moveWisp(w, t, dt) {
 }
 
 function updateFades(state, dt) {
+  const chained = new Set(state.chain?.ids || []);
+  for (const w of state.wisps) {
+    if ((w.phase === "enter" || w.phase === "live") && w.ttl != null) {
+      w.ttl -= dt;
+    }
+  }
+  const dying = [];
+  for (const w of state.wisps) {
+    if (w.ttl == null || w.ttl > 0) continue;
+    if (w.phase !== "enter" && w.phase !== "live") continue;
+    if (chained.has(w.id)) continue;
+    dying.push(w);
+  }
+  dying.sort((a, b) => a.ttl - b.ttl || a.id - b.id);
+  for (let i = 0; i < dying.length && i < NATURAL_RETIRE_CAP; i++) {
+    const w = dying[i];
+    w.phase = "exit";
+    w.life = 1;
+    w.exitDur = NATURAL_EXIT_TIME;
+  }
   for (const w of state.wisps) {
     if (w.phase === "enter") {
       w.life = Math.min(1, w.life + dt / ENTER_TIME);
@@ -74,7 +97,8 @@ function updateFades(state, dt) {
         w.life = 1;
       }
     } else if (w.phase === "exit") {
-      w.life = Math.max(0, w.life - dt / EXIT_TIME);
+      const fade = w.exitDur || EXIT_TIME;
+      w.life = Math.max(0, w.life - dt / fade);
     }
   }
   state.wisps = state.wisps.filter((w) => w.phase !== "exit" || w.life > 0);
@@ -183,6 +207,12 @@ function applyRelease(state) {
   for (const w of state.wisps) {
     if (clearSet.has(w.id)) markExit(state, w, "pop");
   }
+  state.spawnAttract = {
+    x: result.x,
+    y: result.y,
+    color: result.color,
+    left: Math.min(8, Math.max(3, result.n)),
+  };
 }
 
 function updateBests(state) {
@@ -195,11 +225,15 @@ function fillPopulation(state) {
   const target = Math.min(bandAtT(state.t).pop, POP_MAX);
   while (liveWisps(state.wisps).length < target) {
     const occupied = liveWisps(state.wisps);
-    const { wisp, rngState } = nextWisp(state.rngState, state.t, occupied);
+    const { wisp, rngState } = nextWisp(state.rngState, state.t, occupied, state.spawnAttract);
     wisp.id = state.spawnSeq;
     state.spawnSeq += 1;
     state.rngState = rngState;
     state.wisps.push(wisp);
+    if (state.spawnAttract && wisp.color === state.spawnAttract.color) {
+      state.spawnAttract.left -= 1;
+      if (state.spawnAttract.left <= 0) state.spawnAttract = null;
+    }
   }
 }
 
@@ -262,6 +296,7 @@ export function createInitialState({ seed, dateJst, bestScore = 0, todayBestScor
     chain: { color: null, ids: [], broke: false },
     wisps: [],
     effects: [],
+    spawnAttract: null,
     bestScore: bestScore || 0,
     todayBestScore: todayBestScore || 0,
     hint: true,

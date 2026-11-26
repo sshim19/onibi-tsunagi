@@ -9,6 +9,10 @@ import {
   WANDER_FREQ_MIN,
   WANDER_FREQ_MAX,
   CLUSTER_DIST_MAX,
+  TTL_MIN,
+  TTL_MAX,
+  COLOR_FLOOR,
+  STACK_TARGET,
   bandAtT,
   fieldBoundsFor,
 } from "./constants.mjs";
@@ -31,6 +35,37 @@ function colorCounts(live, nColors) {
   return counts;
 }
 
+/**
+ * Keep every color at a floor of 3, then grow one color toward a 7-stack
+ * so a burst chain is often on the field.
+ */
+function pickColor(counts, nColors, colorRoll, attractColor) {
+  const idxs = [];
+  for (let i = 0; i < nColors; i++) idxs.push(i);
+  const pick = (list) => list[Math.min(list.length - 1, Math.floor(colorRoll * list.length))];
+
+  const belowFloor = idxs.filter((i) => counts[i] < COLOR_FLOOR);
+  if (belowFloor.length > 0) return pick(belowFloor);
+
+  if (
+    attractColor != null &&
+    attractColor >= 0 &&
+    attractColor < nColors &&
+    counts[attractColor] < STACK_TARGET + 2
+  ) {
+    return attractColor;
+  }
+
+  const maxC = Math.max(0, ...counts);
+  if (maxC < STACK_TARGET) {
+    const leaders = idxs.filter((i) => counts[i] === maxC);
+    return pick(leaders);
+  }
+
+  const needy = idxs.filter((i) => counts[i] < 5);
+  return pick(needy.length > 0 ? needy : idxs);
+}
+
 function inBounds(x, y, b) {
   return x >= b.xMin && x <= b.xMax && y >= b.yMin && y <= b.yMax;
 }
@@ -44,17 +79,27 @@ function minDist(x, y, live) {
   return best;
 }
 
+function nearestAnchorDist(x, y, anchors) {
+  let best = Infinity;
+  for (const w of anchors) {
+    const d = Math.hypot(x - w.x, y - w.y);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
 /**
  * Next wisp in the deterministic stream.
  * Always consumes a fixed number of RNG draws so the stream stays aligned.
- * Speed is scaled by the current time band; color prefers undersupplied colors.
+ * Speed is scaled by the current time band; color prefers a 7-stack after a floor of 3.
  *
  * @param {number} rngState uint32
  * @param {number} t elapsed run seconds
  * @param {Array<{x:number,y:number,color?:number,phase?:string}>} occupied
+ * @param {{ x:number, y:number, color:number } | null} [attract]
  * @returns {{ wisp: object, rngState: number }}
  */
-export function nextWisp(rngState, t, occupied) {
+export function nextWisp(rngState, t, occupied, attract = null) {
   const band = bandAtT(t);
   const live = liveOccupied(occupied);
   const nColors = band.colors;
@@ -91,12 +136,12 @@ export function nextWisp(rngState, t, occupied) {
   a = freqRoll.a;
   const phaseRoll = rngRange(a, 0, Math.PI * 2);
   a = phaseRoll.a;
+  const ttlRoll = rngRange(a, TTL_MIN, TTL_MAX);
+  a = ttlRoll.a;
 
   const counts = colorCounts(live, nColors);
-  const needy = [];
-  for (let i = 0; i < nColors; i++) if (counts[i] < 3) needy.push(i);
-  const palette = needy.length > 0 ? needy : Array.from({ length: nColors }, (_, i) => i);
-  const color = palette[Math.min(palette.length - 1, Math.floor(colorRoll.value * palette.length))];
+  const attractColor = attract && Number.isFinite(attract.color) ? attract.color | 0 : null;
+  const color = pickColor(counts, nColors, colorRoll.value, attractColor);
 
   let chosen = null;
   let fallback = candidates[0];
@@ -112,22 +157,48 @@ export function nextWisp(rngState, t, occupied) {
     }
   };
 
-  if (clusterRoll.value < band.cluster) {
-    const anchors = live.filter((w) => w.color === color);
-    if (anchors.length > 0) {
-      const idx = Math.min(anchors.length - 1, Math.floor(anchorRoll.value * anchors.length));
-      const anchor = anchors[idx];
-      consider(
-        anchor.x + Math.cos(clusterAng.value) * clusterDist.value,
-        anchor.y + Math.sin(clusterAng.value) * clusterDist.value
-      );
+  const wantCluster = clusterRoll.value < band.cluster;
+  const anchors = live.filter((w) => w.color === color);
+  if (attract && attract.color === color && Number.isFinite(attract.x) && Number.isFinite(attract.y)) {
+    anchors.push({ x: attract.x, y: attract.y, color });
+  }
+
+  if (wantCluster && anchors.length > 0) {
+    const idx = Math.min(anchors.length - 1, Math.floor(anchorRoll.value * anchors.length));
+    const anchor = anchors[idx];
+    consider(
+      anchor.x + Math.cos(clusterAng.value) * clusterDist.value,
+      anchor.y + Math.sin(clusterAng.value) * clusterDist.value,
+    );
+    if (chosen == null) {
+      let best = null;
+      let bestAnchorD = Infinity;
+      for (const c of candidates) {
+        if (!inBounds(c.x, c.y, bounds)) continue;
+        const sep = minDist(c.x, c.y, live);
+        if (sep < MIN_SPAWN_SEP) continue;
+        const ad = nearestAnchorDist(c.x, c.y, anchors);
+        if (ad <= CLUSTER_DIST_MAX && ad < bestAnchorD) {
+          best = c;
+          bestAnchorD = ad;
+        }
+      }
+      if (best) chosen = best;
     }
   }
   for (const c of candidates) consider(c.x, c.y);
 
   const pos = chosen || fallback;
   const speed = speedRoll.value;
-  const ang = angleRoll.value;
+  let ang = angleRoll.value;
+  if (wantCluster && anchors.length > 0) {
+    const idx = Math.min(anchors.length - 1, Math.floor(anchorRoll.value * anchors.length));
+    const anchor = anchors[idx];
+    if (anchor && Number.isFinite(anchor.vx) && Number.isFinite(anchor.vy)) {
+      const base = Math.atan2(anchor.vy, anchor.vx);
+      ang = base + (angleRoll.value - Math.PI) * 0.28;
+    }
+  }
   const wisp = {
     id: -1,
     x: pos.x,
@@ -139,6 +210,7 @@ export function nextWisp(rngState, t, occupied) {
     wander: { amp: ampRoll.value, freq: freqRoll.value, phase: phaseRoll.value },
     phase: "enter",
     life: 0,
+    ttl: ttlRoll.value,
   };
   return { wisp, rngState: a >>> 0 };
 }
