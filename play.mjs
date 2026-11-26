@@ -12,6 +12,7 @@ import { tick, createInitialState } from "./engine/sim.mjs";
 import { MAX_DT, FIXED_DT } from "./engine/constants.mjs";
 import { drawScene, clientToLogical } from "./render/draw.mjs";
 import { createFx, resetFx, syncFx } from "./render/fx.mjs";
+import { createSfx, resetSfx, syncSound, unlockSfx, setMuted } from "./render/sound.mjs";
 import { bindScreens } from "./render/screens.mjs";
 import {
   getJstDate,
@@ -50,6 +51,8 @@ let activePointer = null;
 let lastTs = 0;
 let lastShare = shareText({ dateLabel, score: 0 });
 const fx = createFx();
+const sfx = createSfx();
+screens.setMuteUi(sfx.muted);
 
 function titleStateFrom(bests) {
   const playing = createInitialState({
@@ -70,6 +73,7 @@ function freshRun() {
   pointerY = 320;
   lastTs = 0;
   resetFx(fx);
+  resetSfx(sfx);
   return createInitialState({
     seed,
     dateJst,
@@ -128,6 +132,7 @@ function frame(ts) {
     const input = takeInput();
     const next = tick(state, input, dt);
     syncFx(fx, next, dt, { reducedMotion: reducedMotion() });
+    syncSound(sfx, next);
     if (next.status === "over") {
       finishRun(next);
     } else {
@@ -136,6 +141,7 @@ function frame(ts) {
   } else {
     if (state.status !== "over") clearPointer();
     syncFx(fx, state, dt, { reducedMotion: reducedMotion() });
+    syncSound(sfx, state);
   }
 
   paint();
@@ -160,16 +166,36 @@ function quitToOver() {
   if (held || state.pointer?.held) {
     held = false;
     next = tick(state, { held: false, x: pointerX, y: pointerY }, FIXED_DT);
+    syncFx(fx, next, FIXED_DT, { reducedMotion: reducedMotion() });
+    syncSound(sfx, next);
   }
   finishRun(next.status === "over" ? next : { ...next, status: "over" });
   paint();
 }
 
+function unlockAudio() {
+  unlockSfx(sfx);
+}
+
+window.addEventListener("pointerdown", unlockAudio, { capture: true });
+window.addEventListener("touchstart", unlockAudio, { capture: true });
+window.addEventListener("keydown", unlockAudio);
+
+screens.el.btnMute?.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  unlockSfx(sfx);
+  setMuted(sfx, !sfx.muted);
+  screens.setMuteUi(sfx.muted);
+});
+
 screens.el.btnStart?.addEventListener("click", () => {
+  unlockSfx(sfx);
   startPlay();
 });
 
 screens.el.btnRetry?.addEventListener("click", () => {
+  unlockSfx(sfx);
   startPlay();
 });
 
