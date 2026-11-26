@@ -11,6 +11,7 @@
 import { tick, createInitialState } from "./engine/sim.mjs";
 import { MAX_DT, FIXED_DT } from "./engine/constants.mjs";
 import { drawScene, clientToLogical } from "./render/draw.mjs";
+import { createFx, resetFx, syncFx } from "./render/fx.mjs";
 import { bindScreens } from "./render/screens.mjs";
 import {
   getJstDate,
@@ -48,6 +49,7 @@ let pointerY = 320;
 let activePointer = null;
 let lastTs = 0;
 let lastShare = shareText({ dateLabel, score: 0 });
+const fx = createFx();
 
 function titleStateFrom(bests) {
   const playing = createInitialState({
@@ -67,6 +69,7 @@ function freshRun() {
   pointerX = 180;
   pointerY = 320;
   lastTs = 0;
+  resetFx(fx);
   return createInitialState({
     seed,
     dateJst,
@@ -105,7 +108,7 @@ function clearPointer() {
 }
 
 function paint() {
-  drawScene(ctx, state, { reducedMotion: reducedMotion() });
+  drawScene(ctx, state, { reducedMotion: reducedMotion(), fx });
   if (state.status === "playing") {
     screens.updateHud({
       timeLeft: state.timeLeft,
@@ -124,13 +127,15 @@ function frame(ts) {
   if (state.status === "playing") {
     const input = takeInput();
     const next = tick(state, input, dt);
+    syncFx(fx, next, dt, { reducedMotion: reducedMotion() });
     if (next.status === "over") {
       finishRun(next);
     } else {
       state = next;
     }
-  } else if (state.status !== "over") {
-    clearPointer();
+  } else {
+    if (state.status !== "over") clearPointer();
+    syncFx(fx, state, dt, { reducedMotion: reducedMotion() });
   }
 
   paint();
