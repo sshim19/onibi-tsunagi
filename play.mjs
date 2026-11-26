@@ -222,10 +222,13 @@ function pointerDown(e) {
   if (e.isPrimary === false) return;
   if (activePointer != null) return;
   activePointer = e.pointerId;
-  try {
-    canvas.setPointerCapture(e.pointerId);
-  } catch {
-    /* ignore */
+  // setPointerCapture on iOS Safari often fires pointercancel and drops the stroke.
+  if (e.pointerType && e.pointerType !== "touch") {
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
   }
   setLogicalFromEvent(e);
   held = true;
@@ -252,11 +255,47 @@ function pointerUp(e) {
   held = false;
 }
 
+function pointerCancel(e) {
+  // Keep the chain on touch cancel (common on iOS). touchend / pointerup will finish.
+  if (e.pointerType === "touch") {
+    if (e.cancelable) e.preventDefault();
+    return;
+  }
+  pointerUp(e);
+}
+
+function touchPoint(e) {
+  const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0]);
+  if (!t) return;
+  setLogicalFromEvent(t);
+}
+
 canvas.addEventListener("pointerdown", pointerDown, { passive: false });
 canvas.addEventListener("pointermove", pointerMove, { passive: false });
 canvas.addEventListener("pointerup", pointerUp, { passive: false });
-canvas.addEventListener("pointercancel", pointerUp, { passive: false });
+canvas.addEventListener("pointercancel", pointerCancel, { passive: false });
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+canvas.addEventListener(
+  "touchstart",
+  (e) => {
+    if (state.status === "playing" && e.cancelable) e.preventDefault();
+  },
+  { passive: false },
+);
+
+canvas.addEventListener(
+  "touchend",
+  (e) => {
+    if (state.status !== "playing") return;
+    if (e.cancelable) e.preventDefault();
+    if (activePointer == null && !held) return;
+    touchPoint(e);
+    activePointer = null;
+    held = false;
+  },
+  { passive: false },
+);
 
 window.addEventListener(
   "touchmove",
